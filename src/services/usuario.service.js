@@ -1,6 +1,6 @@
 import bcryot from "bcrypt";
 import nodemailer from "nodemailer";
-import crypto from 'crypto'
+import crypto from "crypto";
 import {
   CrearUsuario,
   ObtenemosUsuarios,
@@ -9,7 +9,10 @@ import {
   ObtenerUsuarioPorId,
   GuardarTokenRecuperacion,
   ActualizarPassword,
-  ObtenerUsuarioPorToken
+  ObtenerUsuarioPorToken,
+  VerificarEmailUsuario,
+  EliminarUsuario,
+  SolicitarEliminacionUsuario,
 } from "../models/usuario.models.js";
 
 export const Crear = async (
@@ -24,7 +27,10 @@ export const Crear = async (
   try {
     const passwordHash = await bcryot.hash(password, 10);
 
-    // creamos un usuario en la base de datos
+    const verificacion_token = crypto.randomBytes(32).toString("hex");
+    const verificacion_expira = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24hs
+
+    // creamos el usuario con el token incluido
     const usuario = await CrearUsuario(
       nombre,
       email,
@@ -32,15 +38,20 @@ export const Crear = async (
       telefono,
       direccion,
       latitud,
-      longitud
+      longitud,
+      verificacion_token,
+      verificacion_expira
     );
+
+    // enviamos el mail de verificación
+    await EnviarEmailVerificacion(email, verificacion_token);
+
     return usuario;
   } catch (error) {
-    // Capturar error de duplicado en MySQL
     if (error.code === "ER_DUP_ENTRY") {
       throw new Error("El email ya está registrado, intenta con otro.");
     }
-    throw error; // Si es otro error, lo lanzamos igual
+    throw error;
   }
 };
 
@@ -96,23 +107,23 @@ export const ModificarUsuario = async (id, datos, rol = "cliente") => {
 };
 
 export const SolicitarRecuperacionPassword = async (email) => {
-  const token = crypto.randomBytes(32).toString('hex');
-  const expiracion = new Date(Date.now() + 15 * 60 * 1000) // 15 minutos
+  const token = crypto.randomBytes(32).toString("hex");
+  const expiracion = new Date(Date.now() + 15 * 60 * 1000); // 15 minutos
 
   // Guardamos token y expiracion
   await GuardarTokenRecuperacion(email, token, expiracion);
 
   // Configuramos transporte (usa tu datos reales)
   const transporte = nodemailer.createTransport({
-    service: 'gmail',
+    service: "gmail",
     auth: {
       user: process.env.GOOGLE_EMAIL,
-      pass: process.env.GOOGLE_PASSWORD
+      pass: process.env.GOOGLE_PASSWORD,
     },
-    // modificar esto - cambiar gamil que va a quedar y hacer que funcione toda la seguridad para volcarlo aca 
-      tls: {
-    rejectUnauthorized: false
-    }
+    // modificar esto - cambiar gamil que va a quedar y hacer que funcione toda la seguridad para volcarlo aca
+    tls: {
+      rejectUnauthorized: false,
+    },
   });
 
   const link = `https://tusitio.com/reset-password?token=${token}`;
@@ -120,42 +131,117 @@ export const SolicitarRecuperacionPassword = async (email) => {
   await transporte.sendMail({
     from: `"Soporte Tienda Limpieza" <${process.env.GOOGLE_EMAIL}>`,
     to: email,
-    subject: 'Recuperacion de contraseña',
+    subject: "Recuperacion de contraseña",
     html: `
           <p>Has solicitado restablecer tu contraseña.</p>
           <p>Has click en el siguiente enlace para comtinuar:</p>
           <a href="${link}">${link}</a>
           <p>Copia el token: ${token} para poder cambiar la contraseña </p>
           <p>Este enlace es valido por 15 minutos. </a>
-          `
+          `,
   });
 
-  return true
-}
+  return true;
+};
 
 export const CambiarPassworPorToken = async (token, nuevaPassword) => {
-  if(!token || !nuevaPassword){
-    throw new Error('Token y nueva contraseña son requeridas')
+  if (!token || !nuevaPassword) {
+    throw new Error("Token y nueva contraseña son requeridas");
   }
 
   const usuario = await ObtenerUsuarioPorToken(token);
-  if(!usuario){
-    throw new Error('Token invalido');
+  if (!usuario) {
+    throw new Error("Token invalido");
   }
 
-  if(new Date(usuario.verficacion_expira) < new Date()) {
-    throw new Error('El enlace ha expirado')
+  if (new Date(usuario.verficacion_expira) < new Date()) {
+    throw new Error("El enlace ha expirado");
   }
 
   // validacion de seguridad
-    const cumpleRequisitos = /^(?=.*\d).{8,}$/.test(nuevaPassword);
+  const cumpleRequisitos = /^(?=.*\d).{8,}$/.test(nuevaPassword);
   if (!cumpleRequisitos) {
-    throw new Error('La contraseña debe tener al menos 8 caracteres y un número');
+    throw new Error(
+      "La contraseña debe tener al menos 8 caracteres y un número"
+    );
   }
 
   const passwordHasheada = await bcryot.hash(nuevaPassword, 10);
   await ActualizarPassword(usuario.id, passwordHasheada);
 
   return true;
+};
 
-}
+export const EnviarEmailVerificacion = async (email, token) => {
+  const link = `http://localhost:8080/api/auth/verificar-email?token=${token}`;
+
+  // log del enlace de verificacion (solo para desarrollo)
+  console.log("Verificación email:", link); // Funca
+
+  const transporte = nodemailer.createTransport({
+    service: "gmail",
+    auth: {
+      user: process.env.GOOGLE_EMAIL,
+      pass: process.env.GOOGLE_PASSWORD,
+    },
+    tls: {
+      rejectUnauthorized: false, // solo en desarrollo
+    },
+  });
+
+  await transporte.sendMail({
+    from: `"Soporte Tienda Limpieza" <${process.env.GOOGLE_EMAIL}>`,
+    to: email,
+    subject: "Verificá tu cuenta",
+    html: `<p>Gracias por registrarte. Hacé clic para verificar tu cuenta:</p>
+            <a href="${link}">${link}</a>
+            <p>Este enlace es válido por 24 horas.</p>`,
+  });
+};
+
+export const VerificarEmail = async (token) => {
+  return await VerificarEmailUsuario(token);
+};
+
+export const BorrarUsuario = async (id) => {
+  const resultado = await EliminarUsuario(id);
+  if (resultado.affectedRows === 0) {
+    throw new Error("Usuario no encontrado");
+  }
+  return true;
+};
+
+export const SolicitarEliminacion = async (id, email) => {
+  await SolicitarEliminacionUsuario(id);
+
+  const transporte = nodemailer.createTransport({
+    service: "gmail",
+    auth: {
+      user: process.env.GOOGLE_EMAIL,
+      pass: process.env.GOOGLE_PASSWORD,
+    },
+    tls: {
+      rejectUnauthorized: false,
+    },
+  });
+
+  const fechaEliminacion = new Date();
+  fechaEliminacion.setHours(fechaEliminacion.getHours() + 48);
+
+  const fechaFormateada = fechaEliminacion.toLocaleString("es-AR");
+
+  await transporte.sendMail({
+    from: `"Soporte Tienda Limpieza" <${process.env.GOOGLE_EMAIL}>`,
+    to: email,
+    subject: "Solicitud de eliminación de cuenta",
+    html: `
+    <p>Hola,</p>
+    <p>Recibimos una solicitud para eliminar tu cuenta.</p>
+    <p>Tu cuenta será eliminada el <strong>${fechaFormateada}</strong>.</p>
+    <p>Si no fuiste vos o querés cancelar esta solicitud, contactanos antes de esa fecha.</p>
+    <p>Gracias por haber usado nuestra tienda.</p>
+  `,
+  });
+
+  return true;
+};

@@ -1,16 +1,25 @@
 import Conexion from './../config/db.js'
 
-export const CrearUsuario = async (nombre, email, password, telefono, direccion, latitud, longitud) => {
-  // Creamos el usuario
+export const CrearUsuario = async (
+  nombre,
+  email,
+  password,
+  telefono,
+  direccion,
+  latitud,
+  longitud,
+  token,
+  expira
+) => {
   const [result] = await Conexion.query(
-    `INSERT INTO usuarios (nombre, email, password, telefono, direccion, latitud, longitud)
-    VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    [nombre, email, password, telefono, direccion, latitud, longitud]
+    `INSERT INTO usuarios
+    (nombre, email, password, telefono, direccion, latitud, longitud, verificacion_token, verificacion_expira)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [nombre, email, password, telefono, direccion, latitud, longitud, token, expira]
   );
-  // Vemos el usuario
+
   const [usuarioCreado] = await Conexion.query(
-    `SELECT id, nombre, email, telefono, direccion, latitud, longitud, rol, email_verificado, created_at 
-    FROM usuarios WHERE id = ?`,
+    `SELECT id, nombre, email FROM usuarios WHERE id = ?`,
     [result.insertId]
   );
 
@@ -103,3 +112,40 @@ export const ActualizarPassword = async (id, nuevaPassword) => {
     [nuevaPassword, id]
   );
 };
+
+export const VerificarEmailUsuario = async (token) => {
+  const [usuario] = await Conexion.query(
+    `SELECT * FROM usuarios WHERE verificacion_token = ?`,
+    [token]
+  );
+
+  if (!usuario[0]) throw new Error('Token inválido');
+
+  if (new Date(usuario[0].verificacion_expira) < new Date()) {
+    throw new Error('El enlace ha expirado');
+  }
+
+  await Conexion.query(
+    `UPDATE usuarios SET email_verificado = 1, verificacion_token = NULL, verificacion_expira = NULL WHERE id = ?`,
+    [usuario[0].id]
+  );
+
+  return true;
+};
+
+export const EliminarUsuario = async (id) => {
+  const [result] = await Conexion.query(
+    `DELETE FROM usuarios WHERE id = ?`,
+    [id]
+  );
+  return result;
+}
+
+export const SolicitarEliminacionUsuario = async (id) => {
+  const fecha = new Date();
+  const [resultado] = await Conexion.query(
+    `UPDATE usuarios SET eliminar_solicitada = 1, eliminar_fecha = ? WHERE id = ?`,
+    [fecha, id]
+  );
+  return resultado;
+}
