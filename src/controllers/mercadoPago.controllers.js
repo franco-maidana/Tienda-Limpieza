@@ -15,20 +15,17 @@ export const CrearPreferenciaDesdeCarrito = async (req, res) => {
     const carrito = await ObtenerCarritoPendientePorUsuario(usuario_id);
 
     if (!carrito || carrito.length === 0) {
-      return res
-        .status(400)
-        .json({ message: "No hay productos en el carrito" });
+      return res.status(400).json({ message: "No hay productos en el carrito" });
     }
+
+    const orden_id = carrito[0].id; // ✅ Definido correctamente
 
     let subtotalProductos = 0;
-
     for (const item of carrito) {
       const producto = await ObtenerProductoPorId(item.producto_id);
-      subtotalProductos +=
-        parseFloat(item.precio_unitario) * parseFloat(item.cantidad);
+      subtotalProductos += parseFloat(item.precio_unitario) * parseFloat(item.cantidad);
     }
 
-    // Construcción del array de ítems visibles en MP
     const items = [
       {
         title: "Subtotal productos",
@@ -44,10 +41,7 @@ export const CrearPreferenciaDesdeCarrito = async (req, res) => {
       },
     ];
 
-    const totalCarrito = carrito.reduce(
-      (acc, i) => acc + Number(i.subtotal),
-      0
-    );
+    const totalCarrito = carrito.reduce((acc, i) => acc + Number(i.subtotal), 0);
 
     if (totalCarrito < 20000) {
       items.push({
@@ -65,10 +59,10 @@ export const CrearPreferenciaDesdeCarrito = async (req, res) => {
         failure: "https://www.google.com",
         pending: "https://www.google.com",
       },
-
       auto_return: "approved",
       metadata: {
         usuario_id,
+        orden_id, // ✅ Ya no rompe
       },
     };
 
@@ -79,6 +73,7 @@ export const CrearPreferenciaDesdeCarrito = async (req, res) => {
       message: "Preferencia creada con éxito",
       init_point: respuesta.body.init_point,
     });
+
   } catch (error) {
     console.error("Error al crear preferencia:", error);
     return res.status(500).json({

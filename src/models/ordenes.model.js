@@ -93,7 +93,6 @@ export const VaciarCarritoUsuario = async (usuario_id) => {
   );
 };
 
-
 export const BuscarProductoEnCarrito = async (usuario_id, producto_id) => {
   const [rows] = await Conexion.query(
     `SELECT * FROM ordenes_simplificadas 
@@ -112,6 +111,96 @@ export const ActualizarCantidadExistente = async (orden_id, nuevaCantidad) => {
   );
 };
 
+export const ObtenerOrdenPorGrupo = async (grupo_orden) => {
+  const [rows] = await Conexion.query(
+    `SELECT o.*, p.nombre AS producto_nombre
+      FROM ordenes_simplificadas o
+      JOIN productos_limpieza p ON o.producto_id = p.id
+      WHERE o.grupo_orden = ?
+      ORDER BY o.id ASC`,
+    [grupo_orden]
+  );
+  return rows;
+};
 
+
+export const AsignarGrupoOrden = async (orden_id, grupo_orden) => {
+  await Conexion.query(
+    `UPDATE ordenes_simplificadas SET grupo_orden = ? WHERE id = ?`,
+    [grupo_orden, orden_id]
+  );
+};
+
+export const InsertarOrdenResumen = async (
+  grupo_orden,
+  usuario_id,
+  cantidad_productos,
+  subtotal,
+  mantenimiento,
+  envio,
+  total,
+  estado
+) => {
+  await Conexion.query(
+    `INSERT INTO ordenes_resumen (
+      grupo_orden, usuario_id, cantidad_productos,
+      subtotal, mantenimiento, envio, total, estado
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    [grupo_orden, usuario_id, cantidad_productos, subtotal, mantenimiento, envio, total, estado]
+  );
+};
+
+
+export const InsertarProductoVendido = async (
+  grupo_orden, producto_id, cantidad, precio_unitario, subtotal
+) => {
+  await Conexion.query(`
+    INSERT INTO productos_vendidos (
+      grupo_orden, producto_id, cantidad, precio_unitario, subtotal
+    ) VALUES (?, ?, ?, ?, ?)`,
+    [grupo_orden, producto_id, cantidad, precio_unitario, subtotal]
+  );
+};
+
+export const RegistrarGananciaTotal = async () => {
+  const [[{ total_productos }]] = await Conexion.query(`
+    SELECT SUM(subtotal) AS total_productos FROM productos_vendidos
+  `);
+
+  const [[{ total_mantenimiento }]] = await Conexion.query(`
+    SELECT SUM(mantenimiento) AS total_mantenimiento FROM ordenes_resumen
+  `);
+
+  const [[{ total_envio }]] = await Conexion.query(`
+    SELECT SUM(envio) AS total_envio FROM ordenes_resumen
+  `);
+
+  const total_general =
+    (parseFloat(total_productos) || 0) +
+    (parseFloat(total_mantenimiento) || 0) +
+    (parseFloat(total_envio) || 0);
+
+    console.log({
+      total_productos,
+      total_mantenimiento,
+      total_envio,
+      total_general
+    });
+
+
+  await Conexion.query(`
+    INSERT INTO ganancias_totales (
+      total_productos,
+      total_mantenimiento,
+      total_envio,
+      total_general
+    ) VALUES (?, ?, ?, ?)
+  `, [
+    total_productos || 0,
+    total_mantenimiento || 0,
+    total_envio || 0,
+    total_general
+  ]);
+};
 
 

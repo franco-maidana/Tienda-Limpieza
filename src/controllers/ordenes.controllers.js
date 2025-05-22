@@ -4,6 +4,7 @@ import {
   EditarCantidadProductoEnCarrito,
   QuitarProductoDelCarrito,
   VaciarCarrito,
+  ObtenerOrdenPorGrupo
 } from "../services/ordenes.service.js";
 
 export const AgregarProductoAlCarritoController = async (req, res) => {
@@ -134,3 +135,26 @@ export const VaciarCarritoController = async (req, res) => {
     });
   }
 };
+
+export const ObtenerOrdenPorGrupoController = async (req, res) => {
+  try {
+    const { grupo_orden } = req.params;
+    if (!grupo_orden) return res.status(400).json({ message: 'Falta grupo_orden' });
+
+    const resultado = await ObtenerOrdenPorGrupo(grupo_orden);
+
+    return res.json({
+      statusCode: 200,
+      message: 'Orden obtenida con éxito',
+      ...resultado
+    });
+
+  } catch (error) {
+    return res.json({
+      statusCode: 500,
+      message: 'Error al obtener la orden',
+      error: error.message
+    });
+  }
+};
+

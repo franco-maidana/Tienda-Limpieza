@@ -4,7 +4,8 @@ import {
   ObtenerCarritoDelUsuario,
   ModificarProductoEnCarritoController,
   EliminarProductoCarritoController,
-  VaciarCarritoController
+  VaciarCarritoController,
+  ObtenerOrdenPorGrupoController
 } from "../../controllers/ordenes.controllers.js";
 
 const ordenes = Router();
@@ -14,5 +15,6 @@ ordenes.get("/listado/:usuario_id", ObtenerCarritoDelUsuario);
 ordenes.put('/upDate', ModificarProductoEnCarritoController);
 ordenes.delete('/destroi/:usuario_id', EliminarProductoCarritoController);
 ordenes.delete('/vaciar-carrito/:usuario_id', VaciarCarritoController);
+ordenes.get('/obtener/:grupo_orden', ObtenerOrdenPorGrupoController);
 
 export default ordenes;

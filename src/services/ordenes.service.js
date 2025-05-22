@@ -1,3 +1,4 @@
+import { v4 as uuidv4 } from 'uuid';
 import {
 ObtenerProductoPorId,
 DescontarStock,
@@ -9,50 +10,68 @@ ModificarCantidadProductoCarritoPorProducto,
 EliminarProductoDelCarrito,
 VaciarCarritoUsuario,
 BuscarProductoEnCarrito,
-ActualizarCantidadExistente
+ActualizarCantidadExistente,
+AsignarGrupoOrden,
+InsertarOrdenResumen,
+InsertarProductoVendido,
+RegistrarGananciaTotal,
+ObtenerOrdenPorGrupo as ObtenerOrdenPorGrupoModel
 } from "../models/ordenes.model.js";
-import {RegistrarMovimientoFinanciero} from '../models/movimientosFinancieros.model.js'
+// import {RegistrarMovimientoFinanciero} from '../models/movimientosFinancieros.model.js'
 
 
 export const ConfirmarOrdenUsuario = async (usuario_id) => {
   const carrito = await ObtenerCarritoPendientePorUsuario(usuario_id);
   if (carrito.length === 0) throw new Error('No hay productos pendientes');
 
-  const subtotalTotal = carrito.reduce((acc, item) => acc + item.subtotal, 0);
+  const grupo_orden = uuidv4();
 
+  const subtotalTotal = carrito.reduce((acc, item) => acc + parseFloat(item.subtotal), 0);
   const envio = subtotalTotal >= 20000 ? 0 : 800;
   const mantenimiento = 200;
   const totalFinal = subtotalTotal + envio + mantenimiento;
 
-  // Asignar envío y mantenimiento solo al primer producto
-  await ActualizarEnvioYMantenimiento(carrito[0].id, envio, mantenimiento);
+  for (const item of carrito) {
+    await AsignarGrupoOrden(item.id, grupo_orden);
+  }
 
-  // Actualizar estado de todos a pagado
+  await ActualizarEnvioYMantenimiento(carrito[0].id, envio, mantenimiento);
   await MarcarOrdenesComoPagadas(usuario_id);
 
   for (const item of carrito) {
     const producto = await ObtenerProductoPorId(item.producto_id);
     await DescontarStock(item.producto_id, item.cantidad);
 
-    const ganancia = (producto.precio_unitario - producto.precio_lista) * item.cantidad;
-    const reposicion = producto.precio_lista * item.cantidad;
-
-    await RegistrarMovimientoFinanciero('ingreso', 'Ganancia', `Ganancia - producto ${producto.id}`, ganancia, item.id, usuario_id);
-    await RegistrarMovimientoFinanciero('gasto', 'Reposición', `Reposición - producto ${producto.id}`, reposicion, item.id, usuario_id);
+    await InsertarProductoVendido(
+      grupo_orden,
+      item.producto_id,
+      item.cantidad,
+      item.precio_unitario,
+      item.subtotal
+    );
   }
 
-  await RegistrarMovimientoFinanciero('ingreso', 'Mantenimiento', 'Cargo plataforma', mantenimiento, carrito[0].id, usuario_id);
+  await InsertarOrdenResumen(
+    grupo_orden,
+    usuario_id,
+    carrito.length,
+    subtotalTotal,
+    mantenimiento,
+    envio,
+    totalFinal,
+    'pagado'
+  );
 
-  if (envio > 0) {
-    await RegistrarMovimientoFinanciero('ingreso', 'Envío', 'Ingreso por envío', envio, carrito[0].id, usuario_id);
-  }
-
+  await RegistrarGananciaTotal();
+  
   return {
+    grupo_orden,
     totalProductos: subtotalTotal,
     mantenimiento,
     envio,
     totalFinal
   };
+
 };
 
 export const AgregarProductoAlCarrito = async (usuario_id, producto_id, cantidad) => {
@@ -149,3 +168,23 @@ export const VaciarCarrito = async (usuario_id) => {
   return { usuario_id };
 };
 
+export const ObtenerOrdenPorGrupo = async (grupo_orden) => {
+  const productos = await ObtenerOrdenPorGrupoModel(grupo_orden);
+
+  if (!productos.length) {
+    throw new Error('Orden no encontrada');
+  }
+
+  const totales = {
+    mantenimiento: productos[0].mantenimiento,
+    envio: productos[0].envio,
+    subtotal: productos.reduce((acc, i) => acc + parseFloat(i.subtotal), 0),
+    total: productos.reduce((acc, i) => acc + parseFloat(i.total), 0),
+  };
+
+  return {
+    grupo_orden,
+    productos,
+    totales,
+  };
+};
