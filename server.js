@@ -2,6 +2,7 @@ import cookieParser from "cookie-parser";
 import express from "express";
 import Conexion from "./src/config/db.js";
 import dotenv from 'dotenv'
+import indexRouter from "./src/router/index.router.js";
 
 dotenv.config();
 
@@ -20,6 +21,7 @@ server.use(express.json());
 server.use(express.urlencoded({extended: true}));
 server.use(cookieParser());
 
-
+// carga de rutas 
+server.use('/', indexRouter);
 // inicializamos el servidor 
 server.listen(PORT, ready);
