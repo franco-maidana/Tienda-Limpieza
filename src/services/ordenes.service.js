@@ -17,7 +17,7 @@ InsertarProductoVendido,
 RegistrarGananciaTotal,
 ObtenerOrdenPorGrupo as ObtenerOrdenPorGrupoModel
 } from "../models/ordenes.model.js";
-// import {RegistrarMovimientoFinanciero} from '../models/movimientosFinancieros.model.js'
+import {ActualizarBalance} from '../models/finanzas.models.js'
 
 
 export const ConfirmarOrdenUsuario = async (usuario_id) => {
@@ -63,7 +63,7 @@ export const ConfirmarOrdenUsuario = async (usuario_id) => {
   );
 
   await RegistrarGananciaTotal();
-  
+  await ActualizarBalance();
   return {
     grupo_orden,
     totalProductos: subtotalTotal,

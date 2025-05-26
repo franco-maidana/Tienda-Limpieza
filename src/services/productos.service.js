@@ -6,8 +6,11 @@ import {
   EliminarProducto,
   AnularProducto,
   ActivarProducto,
-  ObtenerProductosAdmin
+  ObtenerProductosAdmin,
+
 } from "../models/productos.model.js";
+import {ActualizarBalance,RegistrarGasto} from '../models/finanzas.models.js'
+
 
 export const Crear = async (datos, imagen, creado_por) => {
   const imagen_url = imagen ? `/uploads/productos/${imagen.filename}` : null;
@@ -92,4 +95,45 @@ export const ListarProductosAdmin = async () => {
 
 export const ReactivarProducto = async (id) => {
   return await ActivarProducto(id);
+};
+
+
+// prueba 
+export const InsertarProductoNuevoConGasto = async (
+  nombre,
+  descripcion,
+  tipo_medida,
+  stock,
+  precio_lista,
+  ganancia,
+  imagen_url,
+  categoria_id,
+  marca,
+  stock_minimo,
+  creado_por
+) => {
+  const productoId = await CrearProducto(
+    nombre,
+    descripcion,
+    tipo_medida,
+    stock,
+    stock_minimo,
+    precio_lista,
+    ganancia,
+    imagen_url,
+    categoria_id,
+    marca,
+    creado_por
+  );
+
+  // 💰 Solo registrar gasto si hay stock y precio definido
+  if (stock > 0 && precio_lista > 0) {
+    const monto = stock * precio_lista;
+    const descripcionGasto = `Alta de producto "${nombre}" con ${stock} unidades`;
+
+    await RegistrarGasto('Reposición', descripcionGasto, monto);
+    await ActualizarBalance();
+  }
+
+  return productoId;
 };

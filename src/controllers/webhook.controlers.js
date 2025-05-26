@@ -10,6 +10,9 @@ export const WebhookMP = async (req, res) => {
     const paymentId = query['data.id'];
 
     const { body: payment } = await mercadoPago.get(`/v1/payments/${paymentId}`);
+
+    console.log('📩 Webhook payment data:', JSON.stringify(payment, null, 2));
+
     if (payment.status !== 'approved') return res.sendStatus(200);
 
     const usuario_id = payment.metadata?.usuario_id;

@@ -67,7 +67,7 @@ export const CrearPreferenciaDesdeCarrito = async (req, res) => {
     };
 
     const respuesta = await mercadoPago.createPreference(preferencia);
-
+    console.log('📦 Preferencia generada:', JSON.stringify(preferencia, null, 2));
     return res.status(200).json({
       statusCode: 200,
       message: "Preferencia creada con éxito",

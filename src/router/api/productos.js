@@ -7,7 +7,8 @@ import {
   EliminarProductoControllers,
   DesactivarproductoControllers,
   ObtenerListadoAdmin,
-  ReactivarProductoController
+  ReactivarProductoController,
+  CrearProductoConGastoController
 } from "../../controllers/productos.controllers.js";
 
 const productos = Router();
@@ -19,5 +20,6 @@ productos.delete("/delete/:id", EliminarProductoControllers);
 productos.put('/desactivar/:id', DesactivarproductoControllers);
 productos.get('/admin-listado', ObtenerListadoAdmin);
 productos.put('/reactivar/:id', ReactivarProductoController);
-
+// prueba
+productos.post("/crear-producto", upload.single("imagen"), CrearProductoConGastoController);
 export default productos;

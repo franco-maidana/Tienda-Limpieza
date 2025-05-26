@@ -5,7 +5,8 @@ import {
   BorrarProducto,
   DesactivarProducto,
   ListarProductosAdmin,
-  ReactivarProducto
+  ReactivarProducto,
+  InsertarProductoNuevoConGasto
 } from "../services/productos.service.js";
 
 export const CrearProductoControllers = async (req, res) => {
@@ -137,6 +138,54 @@ export const ReactivarProductoController = async (req, res) => {
     return res.json({
       statusCode: 500,
       message: 'Error al reactivar producto',
+      error: error.message
+    });
+  }
+};
+
+
+// manejo de varias tablas
+export const CrearProductoConGastoController = async (req, res) => {
+  try {
+    const {
+      nombre,
+      descripcion,
+      tipo_medida,
+      stock,
+      precio_lista,
+      ganancia,
+      categoria_id,
+      marca,
+      stock_minimo
+    } = req.body;
+
+    const imagen_url = req.file?.path || '';
+    const creado_por = 6; // Cambialo por usuario logueado si aplica
+
+    const productoId = await InsertarProductoNuevoConGasto(
+      nombre,
+      descripcion,
+      tipo_medida,
+      parseFloat(stock),
+      parseFloat(precio_lista),
+      parseFloat(ganancia),
+      imagen_url,
+      parseInt(categoria_id),
+      marca,
+      parseFloat(stock_minimo),
+      parseInt(creado_por)
+    );
+
+    return res.json({
+      statusCode: 201,
+      message: 'Producto creado con gasto registrado y balance actualizado',
+      productoId
+    });
+  } catch (error) {
+    console.error("❌ Error al crear producto con gasto:", error);
+    return res.json({
+      statusCode: 500,
+      message: 'Error al crear producto con gasto',
       error: error.message
     });
   }

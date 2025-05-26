@@ -3,23 +3,28 @@ import Conexion from './../config/db.js'
 
 export const CrearProducto = async (
   nombre, descripcion, tipo_medida,
-  stock, stock_minimo, precio_lista, ganancia, marca,
-  categoria_id, imagen_url, creado_por
+  stock, stock_minimo, precio_lista, ganancia, imagen_url,
+  categoria_id, marca, creado_por
 ) => {
   const [result] = await Conexion.query(
     `INSERT INTO productos_limpieza (
       nombre, descripcion, tipo_medida,
       stock, stock_minimo, precio_lista, ganancia,
-      marca, categoria_id, imagen_url, creado_por
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      imagen_url, categoria_id, marca,
+      activo, creado_por
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)`,
     [
       nombre, descripcion, tipo_medida,
       stock, stock_minimo, precio_lista, ganancia,
-      marca, categoria_id, imagen_url, creado_por
+      imagen_url, categoria_id, marca,
+      creado_por
     ]
   );
+
   return result;
 };
+
+
 
 export const ObtenerProductoPorId = async (id) => {
   const [rows] = await Conexion.query(
