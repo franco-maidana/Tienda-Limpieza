@@ -49,3 +49,11 @@ export const EliminarGastoPorProducto = async (nombre_producto) => {
   );
 };
 
+export const EliminarGastoPorId = async (id) => {
+  await Conexion.query(
+    `DELETE FROM gastos_totales WHERE id = ?`,
+    [id]
+  );
+};
+
+

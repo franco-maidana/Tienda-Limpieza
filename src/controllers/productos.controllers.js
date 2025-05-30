@@ -11,7 +11,12 @@ import {
 
 export const CrearProductoControllers = async (req, res) => {
   try {
-    const datos = req.body;
+    const datos = {
+      ...req.body,
+      insumo_id: parseInt(req.body.insumo_id),
+      envase_id: parseInt(req.body.envase_id)
+    };
+
     const imagen = req.file;
     const creado_por = 6;
 
@@ -147,33 +152,35 @@ export const ReactivarProductoController = async (req, res) => {
 // manejo de varias tablas
 export const CrearProductoConGastoController = async (req, res) => {
   try {
+
+
     const {
       nombre,
       descripcion,
       tipo_medida,
-      stock,
-      precio_lista,
+      stock_minimo,
       ganancia,
       categoria_id,
       marca,
-      stock_minimo
+      insumo_id,
+      envase_id,
+      creado_por
     } = req.body;
 
-    const imagen_url = req.file?.path || '';
-    const creado_por = 6; // Cambialo por usuario logueado si aplica
+    const imagen_url = req.file ? `/uploads/productos/${req.file.filename}` : null;
 
     const productoId = await InsertarProductoNuevoConGasto(
       nombre,
       descripcion,
       tipo_medida,
-      parseFloat(stock),
-      parseFloat(precio_lista),
+      parseFloat(stock_minimo),
       parseFloat(ganancia),
       imagen_url,
       parseInt(categoria_id),
       marca,
-      parseFloat(stock_minimo),
-      parseInt(creado_por)
+      parseInt(creado_por || 6),
+      parseInt(insumo_id),
+      parseInt(envase_id)
     );
 
     return res.json({
@@ -183,7 +190,7 @@ export const CrearProductoConGastoController = async (req, res) => {
     });
   } catch (error) {
     console.error("❌ Error al crear producto con gasto:", error);
-    return res.json({
+    return res.status(500).json({
       statusCode: 500,
       message: 'Error al crear producto con gasto',
       error: error.message

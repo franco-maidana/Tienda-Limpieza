@@ -8,12 +8,12 @@ export const ObtenerProductoPorId = async (producto_id) => {
   return rows[0];
 };
 
-export const DescontarStock = async (producto_id, cantidad) => {
-  await Conexion.query(
-    `UPDATE productos_limpieza SET stock = stock - ? WHERE id = ?`,
-    [cantidad, producto_id]
-  );
-};
+// export const DescontarStock = async (producto_id, cantidad) => {
+//   await Conexion.query(
+//     `UPDATE productos_limpieza SET stock = stock - ? WHERE id = ?`,
+//     [cantidad, producto_id]
+//   );
+// };
 
 export const ObtenerCarritoPendientePorUsuario = async (usuario_id) => {
   const [rows] = await Conexion.query(

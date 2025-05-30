@@ -7,10 +7,10 @@ import {
   AnularProducto,
   ActivarProducto,
   ObtenerProductosAdmin,
-
 } from "../models/productos.model.js";
-import {ActualizarBalance,RegistrarGasto} from '../models/finanzas.models.js'
 
+import { ObtenerInsumoPorId } from "../models/insumos.model.js";
+import { ObtenerEnvasePorId } from "../models/envases.model.js";
 
 export const Crear = async (datos, imagen, creado_por) => {
   const imagen_url = imagen ? `/uploads/productos/${imagen.filename}` : null;
@@ -19,19 +19,18 @@ export const Crear = async (datos, imagen, creado_por) => {
     datos.nombre,
     datos.descripcion,
     datos.tipo_medida,
-    datos.stock,
     datos.stock_minimo,
     datos.precio_lista,
     datos.ganancia,
     datos.marca,
     datos.categoria_id,
     imagen_url,
-    creado_por
+    creado_por,
+    datos.insumo_id,
+    datos.envase_id
   );
 
-  // Buscamos el producto recién creado
   const producto = await ObtenerProductoPorId(resultado.insertId);
-
   return producto;
 };
 
@@ -87,9 +86,9 @@ export const DesactivarProducto = async (id) => {
 export const ListarProductosAdmin = async () => {
   const productos = await ObtenerProductosAdmin();
 
-  return productos.map(p => ({
+  return productos.map((p) => ({
     ...p,
-    stock_bajo: p.stock <= p.stock_minimo
+    stock_bajo: p.stock <= p.stock_minimo,
   }));
 };
 
@@ -97,43 +96,60 @@ export const ReactivarProducto = async (id) => {
   return await ActivarProducto(id);
 };
 
-
-// prueba 
+// prueba
 export const InsertarProductoNuevoConGasto = async (
   nombre,
   descripcion,
   tipo_medida,
-  stock,
-  precio_lista,
+  stock_minimo,
   ganancia,
   imagen_url,
   categoria_id,
   marca,
-  stock_minimo,
-  creado_por
+  creado_por,
+  insumo_id,
+  envase_id
 ) => {
+  let precio_unitario = 0;
+  let precio_lista = 0;
+
+  const insumo = insumo_id ? await ObtenerInsumoPorId(insumo_id) : null;
+
+  if (insumo && insumo.tipo === "liquido" && envase_id) {
+    const envase = await ObtenerEnvasePorId(envase_id);
+    if (!envase) throw new Error("Envase no válido");
+
+    const litros = parseFloat(envase.capacidad_litros);
+    const precio_insumo = parseFloat(insumo.precio_litro) * litros;
+    const precio_envase = parseFloat(envase.precio_envase);
+
+    precio_lista = precio_insumo + precio_envase;
+    precio_unitario =
+      precio_lista + (precio_lista * parseFloat(ganancia)) / 100;
+  } else if (insumo && insumo.tipo === "seco") {
+    precio_lista = parseFloat(insumo.precio_seco);
+    precio_unitario =
+      precio_lista + (precio_lista * parseFloat(ganancia)) / 100;
+  } else {
+    precio_lista = 0;
+    precio_unitario = 0;
+  }
+
+  // Crear producto (sin gasto)
   const productoId = await CrearProducto(
     nombre,
     descripcion,
     tipo_medida,
-    stock,
     stock_minimo,
     precio_lista,
-    ganancia,
-    imagen_url,
-    categoria_id,
+    parseFloat(ganancia),
     marca,
-    creado_por
+    categoria_id,
+    imagen_url,
+    creado_por,
+    insumo_id,
+    envase_id
   );
-
-  // 💰 Solo registrar gasto si hay stock y precio definido
-  if (stock > 0 && precio_lista > 0) {
-    const monto = stock * precio_lista;
-    const descripcionGasto = `Alta de producto "${nombre}" con ${stock} unidades`;
-
-    await RegistrarGasto('Reposición', descripcionGasto, monto);
-    await ActualizarBalance();
-  }
 
   return productoId;
 };

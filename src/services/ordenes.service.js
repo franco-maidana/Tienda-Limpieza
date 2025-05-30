@@ -1,32 +1,41 @@
-import { v4 as uuidv4 } from 'uuid';
+import { v4 as uuidv4 } from "uuid";
 import {
-ObtenerProductoPorId,
-DescontarStock,
-ObtenerCarritoPendientePorUsuario,
-MarcarOrdenesComoPagadas,
-ActualizarEnvioYMantenimiento,
-InsertarOrdenSimplificada,
-ModificarCantidadProductoCarritoPorProducto,
-EliminarProductoDelCarrito,
-VaciarCarritoUsuario,
-BuscarProductoEnCarrito,
-ActualizarCantidadExistente,
-AsignarGrupoOrden,
-InsertarOrdenResumen,
-InsertarProductoVendido,
-RegistrarGananciaTotal,
-ObtenerOrdenPorGrupo as ObtenerOrdenPorGrupoModel
+  ObtenerProductoPorId,
+  ObtenerCarritoPendientePorUsuario,
+  MarcarOrdenesComoPagadas,
+  ActualizarEnvioYMantenimiento,
+  InsertarOrdenSimplificada,
+  ModificarCantidadProductoCarritoPorProducto,
+  EliminarProductoDelCarrito,
+  VaciarCarritoUsuario,
+  BuscarProductoEnCarrito,
+  ActualizarCantidadExistente,
+  AsignarGrupoOrden,
+  InsertarOrdenResumen,
+  InsertarProductoVendido,
+  RegistrarGananciaTotal,
+  ObtenerOrdenPorGrupo as ObtenerOrdenPorGrupoModel,
 } from "../models/ordenes.model.js";
-import {ActualizarBalance} from '../models/finanzas.models.js'
-
+import { ActualizarBalance } from "../models/finanzas.models.js";
+import {
+  DescontarEnvase,
+  ObtenerEnvasePorId,
+} from "../models/envases.model.js";
+import {
+  ObtenerInsumoPorId,
+  DescontarLitros,
+} from "../models/insumos.model.js";
+import { DescontarStockUnidades } from "../models/insumos.model.js";
 
 export const ConfirmarOrdenUsuario = async (usuario_id) => {
   const carrito = await ObtenerCarritoPendientePorUsuario(usuario_id);
-  if (carrito.length === 0) throw new Error('No hay productos pendientes');
+  if (carrito.length === 0) throw new Error("No hay productos pendientes");
 
   const grupo_orden = uuidv4();
-
-  const subtotalTotal = carrito.reduce((acc, item) => acc + parseFloat(item.subtotal), 0);
+  const subtotalTotal = carrito.reduce(
+    (acc, item) => acc + parseFloat(item.subtotal),
+    0
+  );
   const envio = subtotalTotal >= 20000 ? 0 : 800;
   const mantenimiento = 200;
   const totalFinal = subtotalTotal + envio + mantenimiento;
@@ -40,7 +49,44 @@ export const ConfirmarOrdenUsuario = async (usuario_id) => {
 
   for (const item of carrito) {
     const producto = await ObtenerProductoPorId(item.producto_id);
-    await DescontarStock(item.producto_id, item.cantidad);
+
+    if (producto.insumo_id) {
+      const insumo = await ObtenerInsumoPorId(producto.insumo_id);
+      if (!insumo)
+        throw new Error(`Insumo no encontrado para ${producto.nombre}`);
+
+      if (insumo.tipo === "liquido") {
+        const envase = await ObtenerEnvasePorId(producto.envase_id);
+        const litrosPorUnidad = parseFloat(envase.capacidad_litros);
+        const cantidadVendida = parseFloat(item.cantidad);
+
+        const litrosNecesarios = litrosPorUnidad * cantidadVendida;
+
+        if (insumo.stock_litros < litrosNecesarios) {
+          throw new Error(
+            `Stock insuficiente del insumo líquido para ${producto.nombre}`
+          );
+        }
+
+        if (envase.stock < cantidadVendida) {
+          throw new Error(
+            `Stock insuficiente de envases para ${producto.nombre}`
+          );
+        }
+
+        await DescontarLitros(insumo.id, litrosNecesarios);
+        await DescontarEnvase(envase.id, cantidadVendida);
+      } else if (insumo.tipo === "seco") {
+        const cantidadUnidades = parseFloat(item.cantidad);
+        if (insumo.stock_unidades < cantidadUnidades) {
+          throw new Error(
+            `Stock insuficiente del producto seco: ${producto.nombre}`
+          );
+        }
+
+        await DescontarStockUnidades(insumo.id, cantidadUnidades);
+      }
+    }
 
     await InsertarProductoVendido(
       grupo_orden,
@@ -59,32 +105,101 @@ export const ConfirmarOrdenUsuario = async (usuario_id) => {
     mantenimiento,
     envio,
     totalFinal,
-    'pagado'
+    "pagado"
   );
 
   await RegistrarGananciaTotal();
   await ActualizarBalance();
+
   return {
     grupo_orden,
     totalProductos: subtotalTotal,
     mantenimiento,
     envio,
-    totalFinal
+    totalFinal,
   };
-
 };
 
-export const AgregarProductoAlCarrito = async (usuario_id, producto_id, cantidad) => {
+export const AgregarProductoAlCarrito = async (
+  usuario_id,
+  producto_id,
+  cantidad
+) => {
   const producto = await ObtenerProductoPorId(producto_id);
-  if (!producto) throw new Error('Producto no encontrado');
-  if (producto.stock < cantidad) throw new Error('Stock insuficiente');
+  if (!producto) throw new Error("Producto no encontrado");
+
+  // Validación para productos con insumo y envase (líquidos)
+  if (producto.insumo_id && producto.envase_id) {
+    const insumo = await ObtenerInsumoPorId(producto.insumo_id);
+    const envase = await ObtenerEnvasePorId(producto.envase_id);
+
+    const litrosPorUnidad = parseFloat(envase.capacidad_litros);
+    const litrosNecesarios = litrosPorUnidad * cantidad;
+
+    if (parseFloat(insumo.stock_litros) < litrosNecesarios) {
+      throw new Error(
+        `Stock insuficiente de insumo líquido. Solo hay ${insumo.stock_litros} litros disponibles.`
+      );
+    }
+
+    if (envase.stock < cantidad) {
+      throw new Error(
+        `Stock insuficiente de envases. Solo hay ${envase.stock} unidades disponibles.`
+      );
+    }
+  }
+
+  // Validación para productos secos (sin envase)
+  if (producto.insumo_id && !producto.envase_id) {
+    const insumo = await ObtenerInsumoPorId(producto.insumo_id);
+
+    if (insumo.tipo === "seco") {
+      const cantidadDisponible = parseInt(insumo.stock_unidades);
+
+      if (cantidad > cantidadDisponible) {
+        throw new Error(
+          `Stock insuficiente del producto seco. Solo hay ${cantidadDisponible} unidades disponibles.`
+        );
+      }
+    }
+  }
 
   const existente = await BuscarProductoEnCarrito(usuario_id, producto_id);
 
   if (existente) {
     const nuevaCantidad = parseFloat(existente.cantidad) + cantidad;
-    if (nuevaCantidad > producto.stock) {
-      throw new Error('No hay suficiente stock para aumentar esa cantidad');
+
+    if (producto.insumo_id && producto.envase_id) {
+      const insumo = await ObtenerInsumoPorId(producto.insumo_id);
+      const envase = await ObtenerEnvasePorId(producto.envase_id);
+
+      const litrosPorUnidad = parseFloat(envase.capacidad_litros);
+      const litrosNecesarios = litrosPorUnidad * nuevaCantidad;
+
+      if (parseFloat(insumo.stock_litros) < litrosNecesarios) {
+        throw new Error(
+          `No hay suficiente insumo para aumentar la cantidad. Disponible: ${insumo.stock_litros} litros.`
+        );
+      }
+
+      if (envase.stock < nuevaCantidad) {
+        throw new Error(
+          `No hay suficientes envases. Disponible: ${envase.stock} unidades.`
+        );
+      }
+    }
+
+    if (producto.insumo_id && !producto.envase_id) {
+      const insumo = await ObtenerInsumoPorId(producto.insumo_id);
+
+      if (insumo.tipo === "seco") {
+        const cantidadDisponible = parseInt(insumo.stock_unidades);
+        if (nuevaCantidad > cantidadDisponible) {
+          throw new Error(
+            `No hay suficiente stock seco para esa cantidad. Disponible: ${cantidadDisponible}`
+          );
+        }
+      }
     }
 
     await ActualizarCantidadExistente(existente.id, nuevaCantidad);
@@ -92,17 +207,23 @@ export const AgregarProductoAlCarrito = async (usuario_id, producto_id, cantidad
     return {
       producto: producto.nombre,
       cantidad: nuevaCantidad,
-      mensaje: 'Cantidad actualizada en el carrito'
+      mensaje: "Cantidad actualizada en el carrito",
     };
   } else {
     const total = producto.precio_unitario * cantidad;
-    await InsertarOrdenSimplificada(usuario_id, producto_id, cantidad, producto.precio_unitario, total);
+    await InsertarOrdenSimplificada(
+      usuario_id,
+      producto_id,
+      cantidad,
+      producto.precio_unitario,
+      total
+    );
 
     return {
       producto: producto.nombre,
       cantidad,
       total_unitario: producto.precio_unitario,
-      mensaje: 'Producto agregado al carrito'
+      mensaje: "Producto agregado al carrito",
     };
   }
 };
@@ -115,46 +236,56 @@ export const VerCarritoDelUsuario = async (usuario_id) => {
       subtotal: 0,
       envio: 0,
       mantenimiento: 0,
-      total: 0
+      total: 0,
     };
   }
 
-const subtotal = carrito.reduce((acc, item) => acc + parseFloat(item.subtotal), 0);
-const envio = subtotal >= 15000 ? 0 : 800;
-const mantenimiento = 200;
-const total = subtotal + envio + mantenimiento;
-
+  const subtotal = carrito.reduce(
+    (acc, item) => acc + parseFloat(item.subtotal),
+    0
+  );
+  const envio = subtotal >= 15000 ? 0 : 800;
+  const mantenimiento = 200;
+  const total = subtotal + envio + mantenimiento;
 
   return {
     productos: carrito,
     subtotal,
     envio,
     mantenimiento,
-    total
+    total,
   };
 };
 
-export const EditarCantidadProductoEnCarrito = async (usuario_id, producto_id, nuevaCantidad) => {
+export const EditarCantidadProductoEnCarrito = async (
+  usuario_id,
+  producto_id,
+  nuevaCantidad
+) => {
   if (!nuevaCantidad || nuevaCantidad <= 0) {
-    throw new Error('Cantidad inválida');
+    throw new Error("Cantidad inválida");
   }
 
   const producto = await ObtenerProductoPorId(producto_id);
 
   if (!producto) {
-    throw new Error('Producto no encontrado');
+    throw new Error("Producto no encontrado");
   }
 
   if (nuevaCantidad > producto.stock) {
-    throw new Error('Stock insuficiente para la cantidad solicitada');
+    throw new Error("Stock insuficiente para la cantidad solicitada");
   }
 
-  await ModificarCantidadProductoCarritoPorProducto(usuario_id, producto_id, nuevaCantidad);
+  await ModificarCantidadProductoCarritoPorProducto(
+    usuario_id,
+    producto_id,
+    nuevaCantidad
+  );
 
   return {
     usuario_id,
     producto_id,
-    cantidad_actualizada: nuevaCantidad
+    cantidad_actualizada: nuevaCantidad,
   };
 };
 
@@ -172,7 +303,7 @@ export const ObtenerOrdenPorGrupo = async (grupo_orden) => {
   const productos = await ObtenerOrdenPorGrupoModel(grupo_orden);
 
   if (!productos.length) {
-    throw new Error('Orden no encontrada');
+    throw new Error("Orden no encontrada");
   }
 
   const totales = {

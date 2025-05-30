@@ -1,30 +1,29 @@
 import Conexion from './../config/db.js'
-
+// import {CalcularPrecioVenta} from './stockDerivado.model.js'
 
 export const CrearProducto = async (
   nombre, descripcion, tipo_medida,
-  stock, stock_minimo, precio_lista, ganancia, imagen_url,
-  categoria_id, marca, creado_por
+  stock_minimo, precio_lista, ganancia, marca,
+  categoria_id, imagen_url, creado_por,
+  insumo_id, envase_id
 ) => {
   const [result] = await Conexion.query(
     `INSERT INTO productos_limpieza (
       nombre, descripcion, tipo_medida,
-      stock, stock_minimo, precio_lista, ganancia,
-      imagen_url, categoria_id, marca,
-      activo, creado_por
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)`,
+      stock_minimo, precio_lista, ganancia,
+      marca, categoria_id, imagen_url, creado_por,
+      insumo_id, envase_id
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       nombre, descripcion, tipo_medida,
-      stock, stock_minimo, precio_lista, ganancia,
-      imagen_url, categoria_id, marca,
-      creado_por
+      stock_minimo, precio_lista, ganancia,
+      marca, categoria_id, imagen_url, creado_por,
+      insumo_id, envase_id
     ]
   );
 
   return result;
 };
-
-
 
 export const ObtenerProductoPorId = async (id) => {
   const [rows] = await Conexion.query(
@@ -127,3 +126,11 @@ export const ActivarProducto = async (id) => {
   );
   return resultado;
 };
+
+// export const ObtenerProductoPorNombre = async (nombre) => {
+//   const [rows] = await Conexion.query(
+//     `SELECT * FROM productos_limpieza WHERE nombre = ? LIMIT 1`,
+//     [nombre]
+//   );
+//   return rows[0];
+// };
