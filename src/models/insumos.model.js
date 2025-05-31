@@ -47,3 +47,22 @@ export const DescontarStockUnidades = async (id, unidades) => {
     [unidades, id]
   );
 };
+
+export const ActualizarInsumo = async (id, campos) => {
+  const claves = [], valores = [];
+  for (const [k, v] of Object.entries(campos)) {
+    claves.push(`${k} = ?`);
+    valores.push(v);
+  }
+  valores.push(id);
+  await Conexion.query(`UPDATE insumos_base SET ${claves.join(', ')} WHERE id = ?`, valores);
+};
+
+export const EliminarInsumo = async (id) => {
+  await Conexion.query(`DELETE FROM insumos_base WHERE id = ?`, [id]);
+};
+
+export const ObtenerTodosInsumos = async () => {
+  const [rows] = await Conexion.query(`SELECT * FROM insumos_base`);
+  return rows;
+};

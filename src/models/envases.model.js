@@ -33,3 +33,22 @@ export const ObtenerEnvasePorId = async (id) => {
   );
   return rows[0]; // retorna un solo objeto
 };
+
+export const ActualizarEnvase = async (id, campos) => {
+  const claves = [], valores = [];
+  for (const [k, v] of Object.entries(campos)) {
+    claves.push(`${k} = ?`);
+    valores.push(v);
+  }
+  valores.push(id);
+  await Conexion.query(`UPDATE envases SET ${claves.join(', ')} WHERE id = ?`, valores);
+};
+
+export const EliminarEnvase = async (id) => {
+  await Conexion.query(`DELETE FROM envases WHERE id = ?`, [id]);
+};
+
+export const ObtenerTodosEnvases = async () => {
+  const [rows] = await Conexion.query(`SELECT * FROM envases`);
+  return rows;
+};

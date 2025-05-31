@@ -43,13 +43,13 @@ export const ActualizarBalance = async () => {
 };
 
 
-export const EliminarGastoPorProducto = async (nombre_producto) => {
+export const EliminarGastoPorProducto = async (clave) => {
   await Conexion.query(
-    `DELETE FROM gastos_totales 
-      WHERE categoria = 'Reposición' AND descripcion LIKE ?`,
-    [`%Alta de producto "${nombre_producto}"%`]
+    `DELETE FROM gastos_totales WHERE descripcion LIKE ? AND categoria = 'Reposición'`,
+    [`%${clave}%`]
   );
 };
+
 
 export const EliminarGastoPorId = async (id) => {
   await Conexion.query(
