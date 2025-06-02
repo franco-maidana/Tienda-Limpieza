@@ -127,10 +127,12 @@ export const ActivarProducto = async (id) => {
   return resultado;
 };
 
-// export const ObtenerProductoPorNombre = async (nombre) => {
-//   const [rows] = await Conexion.query(
-//     `SELECT * FROM productos_limpieza WHERE nombre = ? LIMIT 1`,
-//     [nombre]
-//   );
-//   return rows[0];
-// };
+export const RegistrarProductoVendido = async (producto_id, cantidad, precio_unitario, grupo_orden) => {
+  const subtotal = precio_unitario * cantidad;
+
+  await Conexion.query(`
+    INSERT INTO productos_vendidos (producto_id, cantidad, precio_unitario, subtotal, fecha, grupo_orden)
+    VALUES (?, ?, ?, ?, NOW(), ?)
+  `, [producto_id, cantidad, precio_unitario, subtotal, grupo_orden]);
+};
+

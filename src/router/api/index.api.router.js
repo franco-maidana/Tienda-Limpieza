@@ -6,6 +6,7 @@ import mercadoPago from "./mercadoPago.js";
 import webhook from "./webhook.js";
 import almacen from "./almace.js";
 import finanzas from "./finanzas.js";
+import ordenLocal from "./ordenLocal.js";
 
 const ApiRouter = Router()
 
@@ -16,5 +17,7 @@ ApiRouter.use('/pagos', mercadoPago);
 ApiRouter.use('/webhook', webhook);
 ApiRouter.use('/almacen', almacen);
 ApiRouter.use('/finanzas', finanzas);
+ApiRouter.use('/ordenLocal', ordenLocal);
+
 
 export default ApiRouter

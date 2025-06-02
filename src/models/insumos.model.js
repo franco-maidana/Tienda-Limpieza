@@ -66,3 +66,21 @@ export const ObtenerTodosInsumos = async () => {
   const [rows] = await Conexion.query(`SELECT * FROM insumos_base`);
   return rows;
 };
+
+
+export const RestarInsumosDeProducto = async (productoId, cantidadVendida) => {
+const [rows] = await Conexion.query(`
+  SELECT p.insumo_id, e.capacidad_litros
+  FROM productos_limpieza p
+  JOIN envases e ON p.envase_id = e.id
+  WHERE p.id = ?
+`, [productoId]);
+
+const { insumo_id, capacidad_litros } = rows[0];
+
+await Conexion.query(`
+  UPDATE insumos_base
+  SET stock_litros = stock_litros - (? * ?)
+  WHERE id = ?
+`, [cantidadVendida, capacidad_litros, insumo_id]);
+};

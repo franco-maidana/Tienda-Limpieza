@@ -52,3 +52,17 @@ export const ObtenerTodosEnvases = async () => {
   const [rows] = await Conexion.query(`SELECT * FROM envases`);
   return rows;
 };
+
+export const RestarEnvasesDeProducto = async (productoId, cantidadVendida) => {
+const [rows] = await Conexion.query(`
+  SELECT envase_id FROM productos_limpieza WHERE id = ?
+`, [productoId]);
+
+const envase_id = rows[0].envase_id;
+
+await Conexion.query(`
+  UPDATE envases SET stock = stock - ?
+  WHERE id = ?
+`, [cantidadVendida, envase_id]);
+};
+
