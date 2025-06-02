@@ -152,8 +152,6 @@ export const ReactivarProductoController = async (req, res) => {
 // manejo de varias tablas
 export const CrearProductoConGastoController = async (req, res) => {
   try {
-
-
     const {
       nombre,
       descripcion,
