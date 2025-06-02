@@ -13,7 +13,8 @@ import {
 import { ObtenerProductoPorId, RegistrarProductoVendido } from '../models/productos.model.js';
 import { RestarInsumosDeProducto } from '../models/insumos.model.js';
 import { RestarEnvasesDeProducto } from '../models/envases.model.js';
-import {RegistrarGananciaLocal} from '../models/ganancias.model.js'
+import {RegistrarGananciaAcumulada} from '../models/ganancias.model.js'
+import {ActualizarBalance} from '../models/finanzas.models.js'
 
 
 // 🧾 Crear carrito vacío = crea una orden_Local
@@ -60,7 +61,13 @@ export const ConfirmarCarritoService = async (ordenId) => {
   // ✅ Limpiar el carrito
   await LimpiarDetalleCarrito(ordenId);
 
-  await RegistrarGananciaLocal(total);
+  await RegistrarGananciaAcumulada({
+    total_productos: total,
+    total_mantenimiento: 0,
+    total_envio: 0
+  });
+
+  await ActualizarBalance();
 
   return {
     total,

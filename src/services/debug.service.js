@@ -6,9 +6,10 @@ import {
   DescontarStock,
   InsertarProductoVendido,
   InsertarOrdenResumen,
-  RegistrarGananciaTotal,
 } from '../models/ordenes.model.js';
+
 import { ActualizarBalance } from '../models/finanzas.models.js';
+import { RegistrarGananciaAcumulada } from '../models/ganancias.model.js';
 import { v4 as uuidv4 } from 'uuid';
 
 export const DebugConfirmarOrden = async (usuario_id) => {
@@ -57,8 +58,12 @@ export const DebugConfirmarOrden = async (usuario_id) => {
       'pagado'
     );
 
-    console.log('💰 Registrando ganancia...');
-    await RegistrarGananciaTotal();
+    console.log('💰 Registrando ganancia acumulada...');
+    await RegistrarGananciaAcumulada({
+      total_productos: subtotal,
+      total_mantenimiento: mantenimiento,
+      total_envio: envio,
+    });
 
     console.log('📈 Actualizando balance...');
     await ActualizarBalance();

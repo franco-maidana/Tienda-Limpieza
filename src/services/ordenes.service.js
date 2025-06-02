@@ -13,10 +13,9 @@ import {
   AsignarGrupoOrden,
   InsertarOrdenResumen,
   InsertarProductoVendido,
-  RegistrarGananciaTotal,
   ObtenerOrdenPorGrupo as ObtenerOrdenPorGrupoModel,
 } from "../models/ordenes.model.js";
-import { ActualizarBalance } from "../models/finanzas.models.js";
+import { ActualizarBalance,  } from "../models/finanzas.models.js";
 import {
   DescontarEnvase,
   ObtenerEnvasePorId,
@@ -26,6 +25,7 @@ import {
   DescontarLitros,
 } from "../models/insumos.model.js";
 import { DescontarStockUnidades } from "../models/insumos.model.js";
+import {RegistrarGananciaAcumulada} from '../models/ganancias.model.js'
 
 export const ConfirmarOrdenUsuario = async (usuario_id) => {
   const carrito = await ObtenerCarritoPendientePorUsuario(usuario_id);
@@ -52,38 +52,27 @@ export const ConfirmarOrdenUsuario = async (usuario_id) => {
 
     if (producto.insumo_id) {
       const insumo = await ObtenerInsumoPorId(producto.insumo_id);
-      if (!insumo)
-        throw new Error(`Insumo no encontrado para ${producto.nombre}`);
+      if (!insumo) throw new Error(`Insumo no encontrado para ${producto.nombre}`);
 
       if (insumo.tipo === "liquido") {
         const envase = await ObtenerEnvasePorId(producto.envase_id);
         const litrosPorUnidad = parseFloat(envase.capacidad_litros);
         const cantidadVendida = parseFloat(item.cantidad);
-
         const litrosNecesarios = litrosPorUnidad * cantidadVendida;
 
-        if (insumo.stock_litros < litrosNecesarios) {
-          throw new Error(
-            `Stock insuficiente del insumo líquido para ${producto.nombre}`
-          );
-        }
-
-        if (envase.stock < cantidadVendida) {
-          throw new Error(
-            `Stock insuficiente de envases para ${producto.nombre}`
-          );
-        }
+        if (insumo.stock_litros < litrosNecesarios)
+          throw new Error(`Stock insuficiente de insumo líquido para ${producto.nombre}`);
+        if (envase.stock < cantidadVendida)
+          throw new Error(`Stock insuficiente de envases para ${producto.nombre}`);
 
         await DescontarLitros(insumo.id, litrosNecesarios);
         await DescontarEnvase(envase.id, cantidadVendida);
-      } else if (insumo.tipo === "seco") {
-        const cantidadUnidades = parseFloat(item.cantidad);
-        if (insumo.stock_unidades < cantidadUnidades) {
-          throw new Error(
-            `Stock insuficiente del producto seco: ${producto.nombre}`
-          );
-        }
+      }
 
+      if (insumo.tipo === "seco") {
+        const cantidadUnidades = parseFloat(item.cantidad);
+        if (insumo.stock_unidades < cantidadUnidades)
+          throw new Error(`Stock insuficiente del producto seco: ${producto.nombre}`);
         await DescontarStockUnidades(insumo.id, cantidadUnidades);
       }
     }
@@ -108,7 +97,19 @@ export const ConfirmarOrdenUsuario = async (usuario_id) => {
     "pagado"
   );
 
-  await RegistrarGananciaTotal();
+  // ✅ Ganancia acumulada correctamente desde resumen de orden
+  const total_productos = subtotalTotal;
+  const total_mantenimiento = mantenimiento;
+  const total_envio = envio;
+
+  console.log("🚀 [CONFIRMAR ORDEN] Ejecutando ganancia acumulada desde webhook");
+
+  await RegistrarGananciaAcumulada({
+    total_productos,
+    total_mantenimiento,
+    total_envio,
+  });
+
   await ActualizarBalance();
 
   return {
