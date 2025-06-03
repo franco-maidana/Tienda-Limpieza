@@ -8,6 +8,7 @@ import almacen from "./almace.js";
 import finanzas from "./finanzas.js";
 import ordenLocal from "./ordenLocal.js";
 import ganancias from "./ganancias.js";
+import valoraciones from "./valoraciones.js";
 
 const ApiRouter = Router()
 
@@ -20,5 +21,6 @@ ApiRouter.use('/almacen', almacen);
 ApiRouter.use('/finanzas', finanzas);
 ApiRouter.use('/ordenLocal', ordenLocal);
 ApiRouter.use('/ganancias', ganancias);
+ApiRouter.use('/valoraciones', valoraciones);
 
 export default ApiRouter
