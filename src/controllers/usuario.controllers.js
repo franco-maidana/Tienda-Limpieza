@@ -181,7 +181,7 @@ export const SolicitaBajaUsuario = async (req, res) => {
     const usuarios = await ObtenerUsuarioPorId(id);
     
     if(!usuarios){
-      return res,json({
+      return res.json({
         statusCode: 404,
         message: 'Usuario no encontrado'
       })
